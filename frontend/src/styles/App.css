@@ -87,3 +87,33 @@ input, select, textarea {
   height: 300px;
   margin-bottom: 30px;
 }
+
+/* Clear data button */
+.clear-data-btn {
+  background-color: #e74c3c;
+  color: white;
+  font-weight: 500;
+  margin-top: 20px;
+}
+
+.clear-data-btn:hover {
+  background-color: #c0392b;
+}
+
+/* Error messages */
+.error-message {
+  background-color: #ffe6e6;
+  border-left: 4px solid #ff4d4d;
+  padding: 12px 15px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  color: #c00;
+  font-size: 14px;
+}
+
+/* Loading state */
+.loading {
+  text-align: center;
+  padding: 40px 0;
+  color: #777;
+}

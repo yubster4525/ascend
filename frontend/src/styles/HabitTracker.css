@@ -52,6 +52,7 @@
   width: 200px;
   padding: 10px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .date-col {
@@ -179,4 +180,27 @@
   padding: 30px;
   margin: 20px 0;
   color: #777;
+}
+
+.delete-btn {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.habit-row:hover .delete-btn {
+  opacity: 1;
 }

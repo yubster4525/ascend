@@ -185,3 +185,14 @@
 .insight-message {
   line-height: 1.6;
 }
+
+/* Settings Section */
+.settings-section {
+  background-color: #f9f9f9;
+  margin-top: 20px;
+}
+
+.settings-section p {
+  margin-bottom: 15px;
+  color: #555;
+}

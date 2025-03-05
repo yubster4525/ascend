@@ -120,6 +120,22 @@ const HabitTracker = () => {
       setError('Failed to update habit. Please try again.');
     }
   };
+  
+  const deleteHabit = async (habitId) => {
+    try {
+      await habitService.deleteHabit(habitId);
+      
+      // Remove the habit from state
+      setHabits(prevHabits => 
+        prevHabits.filter(habit => 
+          habit.id !== habitId && habit._id !== habitId
+        )
+      );
+    } catch (err) {
+      console.error('Failed to delete habit', err);
+      setError('Failed to delete habit. Please try again.');
+    }
+  };
 
   const isHabitCompletedOnDate = (habit, date) => {
     return (habit.completedDates || []).includes(date);
@@ -253,6 +269,17 @@ const HabitTracker = () => {
                 <div className="habit-col">
                   <span className="habit-name">{habit.name}</span>
                   <span className="habit-frequency">{habit.frequency}</span>
+                  <button 
+                    className="delete-btn" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Are you sure you want to delete the habit "${habit.name}"?`)) {
+                        deleteHabit(habit._id || habit.id);
+                      }
+                    }}
+                  >
+                    ×
+                  </button>
                 </div>
                 
                 {lastSevenDays.map(day => {

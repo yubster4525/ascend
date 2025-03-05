@@ -323,6 +323,31 @@ const GoalsPage = () => {
       // Already updated in local state, so no need for fallback
     }
   };
+  
+  const handleDeleteGoal = async (goalId) => {
+    setIsLoading(true);
+    try {
+      // Try to delete in API
+      await goalService.deleteGoal(goalId);
+      
+      // Delete from local state
+      setGoals(prevGoals => 
+        prevGoals.filter(goal => (goal._id || goal.id) !== goalId)
+      );
+      
+      // Also delete associated tasks
+      setTasks(prevTasks => 
+        prevTasks.filter(task => task.goalId !== goalId)
+      );
+      
+      setError(null);
+    } catch (err) {
+      console.error(`Failed to delete goal ${goalId}`, err);
+      setError('Failed to delete goal. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (isLoading) {
     return <div className="loading">Loading goals...</div>;
@@ -380,6 +405,17 @@ const GoalsPage = () => {
                     </div>
                     <div className="goal-meta">
                       <span className="goal-date">Due: {new Date(goal.targetDate).toLocaleDateString()}</span>
+                      <button 
+                        className="delete-btn" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm(`Are you sure you want to delete "${goal.title}"?`)) {
+                            handleDeleteGoal(goal._id || goal.id);
+                          }
+                        }}
+                      >
+                        ×
+                      </button>
                       <span className="goal-expand-icon">{expandedGoalId === (goal._id || goal.id) ? '▼' : '▶'}</span>
                     </div>
                   </div>

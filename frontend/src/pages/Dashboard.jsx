@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as goalService from '../services/goalService';
+import ClearDataButton from '../components/ClearDataButton';
 import '../styles/Dashboard.css';
 
 const Dashboard = () => {
@@ -214,6 +215,12 @@ const Dashboard = () => {
           Your consistency with morning workouts is improving your energy levels throughout the day.
           Consider adding an evening stretching routine to improve recovery.
         </p>
+      </div>
+      
+      <div className="settings-section card">
+        <h3>Data Management</h3>
+        <p>Use the button below to delete all your data from this device. This action cannot be undone.</p>
+        <ClearDataButton />
       </div>
     </div>
   );

@@ -1,0 +1,159 @@
+.habit-tracker-container {
+  max-width: 1200px;
+}
+
+.habit-form {
+  margin-bottom: 30px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.day-selector {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.day-btn {
+  width: 35px;
+  height: 35px;
+  border-radius: 50%;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.day-btn.selected {
+  background-color: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+/* Habit Tracker Grid */
+.habit-tracker-grid {
+  overflow-x: auto;
+  margin-bottom: 30px;
+}
+
+.tracker-header {
+  display: flex;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 15px;
+  font-weight: bold;
+}
+
+.habit-col {
+  width: 200px;
+  padding: 10px;
+  flex-shrink: 0;
+}
+
+.date-col {
+  width: 80px;
+  text-align: center;
+  padding: 10px;
+  flex-shrink: 0;
+}
+
+.streak-col {
+  width: 80px;
+  text-align: center;
+  padding: 10px;
+  flex-shrink: 0;
+}
+
+.day {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.date {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.habit-rows {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.habit-row {
+  display: flex;
+  border-bottom: 1px solid #f5f5f5;
+  align-items: center;
+}
+
+.habit-row:hover {
+  background-color: #f9f9f9;
+}
+
+.habit-name {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 3px;
+}
+
+.habit-frequency {
+  display: block;
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.habit-check {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.habit-check.completed {
+  background-color: #2ecc71;
+  color: white;
+  border-color: #2ecc71;
+}
+
+.habit-check.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.non-target-day {
+  background-color: #f9f9f9;
+}
+
+.streak-count {
+  font-size: 18px;
+  font-weight: bold;
+  color: #3498db;
+}
+
+.streak-label {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+/* Habit Insights */
+.habit-insights {
+  padding: 20px;
+}
+
+.insights-content {
+  line-height: 1.6;
+}
+
+.insights-content p {
+  margin-bottom: 10px;
+}

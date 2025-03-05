@@ -5,6 +5,7 @@ require('dotenv').config(); // for environment variables if needed
 
 const authRoutes = require('./routes/auth');
 const habitRoutes = require('./routes/habit');
+const goalRoutes = require('./routes/goal');
 
 const app = express();
 
@@ -19,6 +20,7 @@ require('./config/db');
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/habits', habitRoutes);
+app.use('/api/goals', goalRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;

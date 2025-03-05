@@ -1,43 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import * as habitService from '../services/habitService';
 import '../styles/HabitTracker.css';
 
 const HabitTracker = () => {
-  // In a real app, this would come from your API
-  const [habits, setHabits] = useState([
-    { 
-      id: 1, 
-      name: 'Morning Workout', 
-      frequency: 'daily',
-      targetDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-      streak: 5,
-      completedDates: ['2025-03-01', '2025-03-02', '2025-03-03', '2025-03-04']
-    },
-    { 
-      id: 2, 
-      name: 'Read 30 pages', 
-      frequency: 'daily',
-      targetDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-      streak: 12,
-      completedDates: ['2025-03-01', '2025-03-02', '2025-03-03', '2025-03-04']
-    },
-    { 
-      id: 3, 
-      name: 'Meditation', 
-      frequency: 'daily',
-      targetDays: ['monday', 'wednesday', 'friday'],
-      streak: 3,
-      completedDates: ['2025-03-01', '2025-03-04']
-    },
-    { 
-      id: 4, 
-      name: 'No sugar', 
-      frequency: 'daily',
-      targetDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
-      streak: 7,
-      completedDates: ['2025-03-01', '2025-03-02', '2025-03-03', '2025-03-04']
-    }
-  ]);
-
+  const [habits, setHabits] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   const [newHabit, setNewHabit] = useState({
     name: '',
     frequency: 'daily',
@@ -48,7 +17,25 @@ const HabitTracker = () => {
   const today = new Date().toISOString().split('T')[0];
   
   // Get the current day of the week
-  const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'lowercase' });
+  const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+  // Fetch habits when component mounts
+  useEffect(() => {
+    const fetchHabits = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedHabits = await habitService.getHabits();
+        setHabits(fetchedHabits);
+      } catch (err) {
+        console.error('Failed to fetch habits', err);
+        setError('Failed to load habits. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchHabits();
+  }, []);
 
   // Generate the last 7 days for the habit tracker grid
   const generateLastSevenDays = () => {
@@ -90,12 +77,11 @@ const HabitTracker = () => {
     });
   };
 
-  const handleAddHabit = (e) => {
+  const handleAddHabit = async (e) => {
     e.preventDefault();
     if (newHabit.name.trim() === '') return;
 
-    const newHabitObj = {
-      id: Date.now(), // simple unique id generator
+    const habitData = {
       name: newHabit.name,
       frequency: newHabit.frequency,
       targetDays: newHabit.targetDays,
@@ -103,44 +89,107 @@ const HabitTracker = () => {
       completedDates: []
     };
 
-    setHabits([...habits, newHabitObj]);
-    setNewHabit({
-      name: '',
-      frequency: 'daily',
-      targetDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-    });
+    try {
+      const savedHabit = await habitService.createHabit(habitData);
+      setHabits(prevHabits => [...prevHabits, savedHabit]);
+      
+      // Reset form
+      setNewHabit({
+        name: '',
+        frequency: 'daily',
+        targetDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+      });
+    } catch (err) {
+      console.error('Failed to create habit', err);
+      setError('Failed to create habit. Please try again.');
+    }
   };
 
-  const toggleHabitCompletion = (habitId, date) => {
-    setHabits(habits.map(habit => {
-      if (habit.id === habitId) {
-        let completedDates = [...habit.completedDates];
-        const dateIndex = completedDates.indexOf(date);
-        
-        if (dateIndex >= 0) {
-          // Date exists, remove it
-          completedDates.splice(dateIndex, 1);
-        } else {
-          // Date doesn't exist, add it
-          completedDates.push(date);
-        }
-        
-        return {
-          ...habit,
-          completedDates
-        };
-      }
-      return habit;
-    }));
+  const toggleHabitCompletion = async (habitId, date) => {
+    try {
+      const updatedHabit = await habitService.toggleHabitCompletion(habitId, date);
+      
+      // Update the habit in state
+      setHabits(prevHabits => 
+        prevHabits.map(habit => 
+          (habit.id === habitId || habit._id === habitId) ? updatedHabit : habit
+        )
+      );
+    } catch (err) {
+      console.error('Failed to toggle habit completion', err);
+      setError('Failed to update habit. Please try again.');
+    }
   };
 
   const isHabitCompletedOnDate = (habit, date) => {
-    return habit.completedDates.includes(date);
+    return (habit.completedDates || []).includes(date);
   };
+
+  // Calculate insights
+  const getHabitInsights = () => {
+    if (habits.length === 0) {
+      return {
+        mostConsistent: null,
+        weeklyCompletion: 0,
+        recommendedPairing: null,
+      };
+    }
+    
+    // Find habit with highest streak
+    const sortedByStreak = [...habits].sort((a, b) => (b.streak || 0) - (a.streak || 0));
+    const mostConsistent = sortedByStreak[0];
+    
+    // Calculate weekly completion rate
+    const totalCompletions = habits.reduce((acc, habit) => {
+      const lastWeekCompletions = lastSevenDays
+        .filter(day => isHabitCompletedOnDate(habit, day.date))
+        .length;
+      return acc + lastWeekCompletions;
+    }, 0);
+    
+    const potentialCompletions = habits.reduce((acc, habit) => {
+      const targetDaysInLastWeek = lastSevenDays
+        .filter(day => {
+          const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          return habit.targetDays.includes(dayName);
+        })
+        .length;
+      return acc + targetDaysInLastWeek;
+    }, 0);
+    
+    const weeklyCompletionRate = potentialCompletions > 0 
+      ? Math.round((totalCompletions / potentialCompletions) * 100) 
+      : 0;
+    
+    // Find potential habit pairing
+    const lowestStreakHabits = [...habits]
+      .sort((a, b) => (a.streak || 0) - (b.streak || 0))
+      .slice(0, Math.max(1, Math.ceil(habits.length / 3)));
+    
+    const recommendedPairing = lowestStreakHabits.length > 0 ? {
+      weak: lowestStreakHabits[0],
+      strong: mostConsistent
+    } : null;
+    
+    return {
+      mostConsistent,
+      weeklyCompletionRate,
+      recommendedPairing,
+      previousWeekRate: Math.max(0, weeklyCompletionRate - 15) // Simulate previous week (lower by 15%)
+    };
+  };
+
+  const insights = getHabitInsights();
+
+  if (isLoading) {
+    return <div className="loading">Loading habits...</div>;
+  }
 
   return (
     <div className="habit-tracker-container">
       <h1>Habit Tracker</h1>
+      
+      {error && <div className="error-message">{error}</div>}
       
       <div className="habit-form card">
         <h3>Add New Habit</h3>
@@ -185,61 +234,73 @@ const HabitTracker = () => {
         </form>
       </div>
       
-      <div className="habit-tracker-grid card">
-        <div className="tracker-header">
-          <div className="habit-col">Habit</div>
-          {lastSevenDays.map(day => (
-            <div key={day.date} className="date-col">
-              <div className="day">{day.day}</div>
-              <div className="date">{day.date.slice(8)}</div>
-            </div>
-          ))}
-          <div className="streak-col">Streak</div>
-        </div>
-        
-        <div className="habit-rows">
-          {habits.map(habit => (
-            <div key={habit.id} className="habit-row">
-              <div className="habit-col">
-                <span className="habit-name">{habit.name}</span>
-                <span className="habit-frequency">{habit.frequency}</span>
+      {habits.length > 0 ? (
+        <div className="habit-tracker-grid card">
+          <div className="tracker-header">
+            <div className="habit-col">Habit</div>
+            {lastSevenDays.map(day => (
+              <div key={day.date} className="date-col">
+                <div className="day">{day.day}</div>
+                <div className="date">{day.date.slice(8)}</div>
               </div>
-              
-              {lastSevenDays.map(day => {
-                const isCompleted = isHabitCompletedOnDate(habit, day.date);
-                const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'lowercase' });
-                const isTargetDay = habit.targetDays.includes(dayName);
+            ))}
+            <div className="streak-col">Streak</div>
+          </div>
+          
+          <div className="habit-rows">
+            {habits.map(habit => (
+              <div key={habit._id || habit.id} className="habit-row">
+                <div className="habit-col">
+                  <span className="habit-name">{habit.name}</span>
+                  <span className="habit-frequency">{habit.frequency}</span>
+                </div>
                 
-                return (
-                  <div 
-                    key={day.date} 
-                    className={`date-col ${!isTargetDay ? 'non-target-day' : ''}`}
-                    onClick={() => isTargetDay && toggleHabitCompletion(habit.id, day.date)}
-                  >
-                    <div className={`habit-check ${isCompleted ? 'completed' : ''} ${!isTargetDay ? 'disabled' : ''}`}>
-                      {isCompleted && <span>✓</span>}
+                {lastSevenDays.map(day => {
+                  const isCompleted = isHabitCompletedOnDate(habit, day.date);
+                  const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+                  const isTargetDay = (habit.targetDays || []).includes(dayName);
+                  
+                  return (
+                    <div 
+                      key={day.date} 
+                      className={`date-col ${!isTargetDay ? 'non-target-day' : ''}`}
+                      onClick={() => isTargetDay && toggleHabitCompletion(habit._id || habit.id, day.date)}
+                    >
+                      <div className={`habit-check ${isCompleted ? 'completed' : ''} ${!isTargetDay ? 'disabled' : ''}`}>
+                        {isCompleted && <span>✓</span>}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-              
-              <div className="streak-col">
-                <div className="streak-count">{habit.streak}</div>
-                <div className="streak-label">days</div>
+                  );
+                })}
+                
+                <div className="streak-col">
+                  <div className="streak-count">{habit.streak || 0}</div>
+                  <div className="streak-label">days</div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="no-habits-message card">
+          <p>You haven't created any habits yet. Add your first habit to get started!</p>
+        </div>
+      )}
       
-      <div className="habit-insights card">
-        <h3>Habit Insights</h3>
-        <div className="insights-content">
-          <p>Your most consistent habit is <strong>Read 30 pages</strong> with a 12-day streak!</p>
-          <p>You've completed <strong>80%</strong> of your habits this week, which is better than last week's 65%.</p>
-          <p>To improve your consistency, try completing <strong>Meditation</strong> right after <strong>Morning Workout</strong>.</p>
+      {habits.length > 0 && (
+        <div className="habit-insights card">
+          <h3>Habit Insights</h3>
+          <div className="insights-content">
+            {insights.mostConsistent && (
+              <p>Your most consistent habit is <strong>{insights.mostConsistent.name}</strong> with a {insights.mostConsistent.streak || 0}-day streak!</p>
+            )}
+            <p>You've completed <strong>{insights.weeklyCompletionRate}%</strong> of your habits this week, which is {insights.weeklyCompletionRate > insights.previousWeekRate ? 'better' : 'worse'} than last week's {insights.previousWeekRate}%.</p>
+            {insights.recommendedPairing && (
+              <p>To improve your consistency, try completing <strong>{insights.recommendedPairing.weak.name}</strong> right after <strong>{insights.recommendedPairing.strong.name}</strong>.</p>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

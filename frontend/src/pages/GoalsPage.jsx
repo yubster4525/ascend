@@ -1,59 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import GoalTemplateSelector from '../components/GoalTemplateSelector';
 import { deduplicateTasks } from '../utils/goalUtils';
+import * as goalService from '../services/goalService';
 import '../styles/GoalsPage.css';
 
 const GoalsPage = () => {
   // State for goals and tasks
-  const [goals, setGoals] = useState([
-    {
-      id: 1,
-      title: 'Complete a 5K Run',
-      description: 'Train and complete a 5K run in under 30 minutes.',
-      category: 'health',
-      targetDate: '2025-06-30',
-      progress: 40,
-      milestones: [
-        { id: 1, description: 'Start running 2x a week', completed: true },
-        { id: 2, description: 'Be able to run 2K without stopping', completed: true },
-        { id: 3, description: 'Run 3 times a week consistently', completed: false },
-        { id: 4, description: 'Complete a 5K (any time)', completed: false },
-        { id: 5, description: 'Improve time to under 30 minutes', completed: false }
-      ]
-    },
-    {
-      id: 2,
-      title: 'Learn React Native',
-      description: 'Build a mobile app using React Native.',
-      category: 'education',
-      targetDate: '2025-08-15',
-      progress: 25,
-      milestones: [
-        { id: 1, description: 'Complete React Native basics course', completed: true },
-        { id: 2, description: 'Build a simple "Hello World" app', completed: true },
-        { id: 3, description: 'Create a basic UI with multiple screens', completed: false },
-        { id: 4, description: 'Implement data fetching from an API', completed: false },
-        { id: 5, description: 'Deploy a complete app to app stores', completed: false }
-      ]
-    },
-    {
-      id: 3,
-      title: 'Read 12 Books This Year',
-      description: 'Read at least one book per month for personal development.',
-      category: 'personal',
-      targetDate: '2025-12-31',
-      progress: 15,
-      milestones: [
-        { id: 1, description: 'Create reading list', completed: true },
-        { id: 2, description: 'January + February books', completed: true },
-        { id: 3, description: 'March - June books', completed: false },
-        { id: 4, description: 'July - September books', completed: false },
-        { id: 5, description: 'October - December books', completed: false }
-      ]
-    }
-  ]);
-  
+  const [goals, setGoals] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // UI state
   const [newGoal, setNewGoal] = useState({
@@ -80,6 +36,7 @@ const GoalsPage = () => {
     gender: 'male'
   });
 
+  // Categories of goals
   const categories = [
     { id: 'personal', name: 'Personal', color: '#3498db' },
     { id: 'health', name: 'Health & Fitness', color: '#2ecc71' },
@@ -88,6 +45,65 @@ const GoalsPage = () => {
     { id: 'financial', name: 'Financial', color: '#e74c3c' }
   ];
 
+  // Fetch goals from API or localStorage on component mount
+  useEffect(() => {
+    const fetchGoals = async () => {
+      setIsLoading(true);
+      try {
+        // Try to get goals from API
+        const fetchedGoals = await goalService.getGoals();
+        setGoals(fetchedGoals);
+        
+        // Extract tasks from goals
+        let allTasks = [];
+        fetchedGoals.forEach(goal => {
+          if (goal.tasks && goal.tasks.length > 0) {
+            // Add goalId to each task for reference
+            const goalTasks = goal.tasks.map(task => ({
+              ...task,
+              goalId: goal._id || goal.id
+            }));
+            allTasks = [...allTasks, ...goalTasks];
+          }
+        });
+        setTasks(allTasks);
+      } catch (err) {
+        console.error('Failed to fetch goals from API, falling back to localStorage', err);
+        setError('Failed to connect to server. Using local storage instead.');
+        
+        // Fallback to localStorage
+        const localGoals = goalService.loadGoalsFromLocalStorage();
+        setGoals(localGoals);
+        
+        // Extract tasks from local goals
+        let localTasks = [];
+        localGoals.forEach(goal => {
+          if (goal.tasks && goal.tasks.length > 0) {
+            // Add goalId to each task for reference
+            const goalTasks = goal.tasks.map(task => ({
+              ...task,
+              goalId: goal.id
+            }));
+            localTasks = [...localTasks, ...goalTasks];
+          }
+        });
+        setTasks(localTasks);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchGoals();
+  }, []);
+
+  // Save goals to localStorage whenever they change
+  useEffect(() => {
+    if (goals.length > 0) {
+      goalService.saveGoalsToLocalStorage(goals);
+    }
+  }, [goals]);
+
+  // Filter and sort goals based on user selection
   const sortedAndFilteredGoals = [...goals]
     .filter(goal => filterCategory === 'all' || goal.category === filterCategory)
     .sort((a, b) => {
@@ -145,18 +161,31 @@ const GoalsPage = () => {
     setMilestones(milestones.filter(milestone => milestone.id !== id));
   };
 
-  const handleManualSubmit = (e) => {
+  const handleManualSubmit = async (e) => {
     e.preventDefault();
     if (newGoal.title.trim() === '') return;
     
     const goalToAdd = {
-      id: Date.now(),
       ...newGoal,
       progress: 0,
-      milestones: milestones
+      milestones: milestones,
+      startDate: new Date()
     };
     
-    setGoals([...goals, goalToAdd]);
+    try {
+      // Try to save to API
+      const savedGoal = await goalService.createGoal(goalToAdd);
+      setGoals(prevGoals => [...prevGoals, savedGoal]);
+    } catch (err) {
+      console.error('Failed to save goal to API, saving locally', err);
+      // Fallback to local state
+      const localGoal = {
+        ...goalToAdd,
+        id: Date.now()
+      };
+      setGoals(prevGoals => [...prevGoals, localGoal]);
+    }
+    
     setNewGoal({
       title: '',
       description: '',
@@ -168,23 +197,49 @@ const GoalsPage = () => {
   };
 
   // Template-based goal creation handler
-  const handleTemplateGoalGenerated = (generatedGoal) => {
-    // Add a unique ID to the goal
-    const goalWithId = {
-      ...generatedGoal,
-      id: Date.now()
-    };
-    
-    // Add the goal to the goals list
-    setGoals(prevGoals => [...prevGoals, goalWithId]);
-    
-    // Process tasks if present
-    if (generatedGoal.tasks && generatedGoal.tasks.length > 0) {
-      // Deduplicate tasks against existing ones
-      const uniqueTasks = deduplicateTasks(tasks, generatedGoal.tasks);
+  const handleTemplateGoalGenerated = async (generatedGoal) => {
+    try {
+      // Try to save to API
+      const savedGoal = await goalService.createGoal(generatedGoal);
+      setGoals(prevGoals => [...prevGoals, savedGoal]);
       
-      // Add the tasks to the tasks list
-      setTasks(prevTasks => [...prevTasks, ...uniqueTasks]);
+      // Process tasks if present
+      if (savedGoal.tasks && savedGoal.tasks.length > 0) {
+        // Add goalId to each task
+        const goalTasks = savedGoal.tasks.map(task => ({
+          ...task,
+          goalId: savedGoal._id || savedGoal.id
+        }));
+        
+        // Deduplicate tasks against existing ones
+        const uniqueTasks = deduplicateTasks(tasks, goalTasks);
+        
+        // Add the tasks to the tasks list
+        setTasks(prevTasks => [...prevTasks, ...uniqueTasks]);
+      }
+    } catch (err) {
+      console.error('Failed to save generated goal to API, saving locally', err);
+      // Fallback to local state
+      const localGoal = {
+        ...generatedGoal,
+        id: Date.now()
+      };
+      setGoals(prevGoals => [...prevGoals, localGoal]);
+      
+      // Process tasks if present
+      if (generatedGoal.tasks && generatedGoal.tasks.length > 0) {
+        // Add goalId to each task
+        const goalTasks = generatedGoal.tasks.map(task => ({
+          ...task,
+          goalId: localGoal.id
+        }));
+        
+        // Deduplicate tasks against existing ones
+        const uniqueTasks = deduplicateTasks(tasks, goalTasks);
+        
+        // Add the tasks to the tasks list
+        setTasks(prevTasks => [...prevTasks, ...uniqueTasks]);
+      }
     }
   };
 
@@ -197,34 +252,87 @@ const GoalsPage = () => {
     }
   };
 
-  const toggleMilestoneCompletion = (goalId, milestoneId) => {
-    setGoals(goals.map(goal => {
-      if (goal.id === goalId) {
-        const updatedMilestones = goal.milestones.map(milestone => {
-          if (milestone.id === milestoneId) {
-            return { ...milestone, completed: !milestone.completed };
-          }
-          return milestone;
-        });
-        
-        // Calculate new progress based on completed milestones
-        const completedCount = updatedMilestones.filter(m => m.completed).length;
-        const totalCount = updatedMilestones.length;
-        const newProgress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
-        
-        return {
-          ...goal,
-          milestones: updatedMilestones,
-          progress: newProgress
-        };
+  const toggleMilestoneCompletion = async (goalId, milestoneId) => {
+    // Find the goal and milestone
+    const goal = goals.find(g => (g._id || g.id) === goalId);
+    if (!goal) return;
+    
+    const milestone = goal.milestones.find(m => (m._id || m.id) === milestoneId);
+    if (!milestone) return;
+    
+    const newCompleted = !milestone.completed;
+    
+    try {
+      // Try to update in API
+      if (goal._id) {
+        await goalService.updateMilestone(goalId, milestoneId, newCompleted);
       }
-      return goal;
-    }));
+      
+      // Update in local state
+      setGoals(goals.map(goal => {
+        if ((goal._id || goal.id) === goalId) {
+          const updatedMilestones = goal.milestones.map(milestone => {
+            if ((milestone._id || milestone.id) === milestoneId) {
+              return { ...milestone, completed: newCompleted };
+            }
+            return milestone;
+          });
+          
+          // Calculate new progress based on completed milestones
+          const completedCount = updatedMilestones.filter(m => m.completed).length;
+          const totalCount = updatedMilestones.length;
+          const newProgress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+          
+          return {
+            ...goal,
+            milestones: updatedMilestones,
+            progress: newProgress
+          };
+        }
+        return goal;
+      }));
+    } catch (err) {
+      console.error('Failed to update milestone in API', err);
+      // Already updated in local state, so no need for fallback
+    }
   };
+
+  const toggleTaskCompletion = async (goalId, taskId) => {
+    // Find the task
+    const taskIndex = tasks.findIndex(t => (t._id || t.id) === taskId);
+    if (taskIndex === -1) return;
+    
+    const task = tasks[taskIndex];
+    const newCompleted = !task.completed;
+    
+    try {
+      // Try to update in API
+      if (task._id) {
+        await goalService.updateTask(goalId, taskId, newCompleted);
+      }
+      
+      // Update in local state
+      setTasks(tasks.map(task => {
+        if ((task._id || task.id) === taskId) {
+          return { ...task, completed: newCompleted };
+        }
+        return task;
+      }));
+    } catch (err) {
+      console.error('Failed to update task in API', err);
+      // Already updated in local state, so no need for fallback
+    }
+  };
+
+  if (isLoading) {
+    return <div className="loading">Loading goals...</div>;
+  }
 
   return (
     <div className="goals-container">
       <h1>Goals & Achievements</h1>
+      
+      {error && <div className="error-message">{error}</div>}
       
       <div className="goals-layout">
         <div className="goals-list">
@@ -258,10 +366,10 @@ const GoalsPage = () => {
           <div className="goals-cards">
             {sortedAndFilteredGoals.length > 0 ? (
               sortedAndFilteredGoals.map(goal => (
-                <div key={goal.id} className={`goal-card card ${expandedGoalId === goal.id ? 'expanded' : ''}`}>
+                <div key={goal._id || goal.id} className={`goal-card card ${expandedGoalId === (goal._id || goal.id) ? 'expanded' : ''}`}>
                   <div 
                     className="goal-header"
-                    onClick={() => toggleGoalExpansion(goal.id)}
+                    onClick={() => toggleGoalExpansion(goal._id || goal.id)}
                   >
                     <div className="goal-title">
                       <span 
@@ -272,7 +380,7 @@ const GoalsPage = () => {
                     </div>
                     <div className="goal-meta">
                       <span className="goal-date">Due: {new Date(goal.targetDate).toLocaleDateString()}</span>
-                      <span className="goal-expand-icon">{expandedGoalId === goal.id ? '▼' : '▶'}</span>
+                      <span className="goal-expand-icon">{expandedGoalId === (goal._id || goal.id) ? '▼' : '▶'}</span>
                     </div>
                   </div>
                   
@@ -286,18 +394,18 @@ const GoalsPage = () => {
                     <span className="goal-progress-text">{goal.progress}% Complete</span>
                   </div>
                   
-                  {expandedGoalId === goal.id && (
+                  {expandedGoalId === (goal._id || goal.id) && (
                     <div className="goal-details">
                       <p className="goal-description">{goal.description}</p>
                       
                       <div className="goal-milestones">
                         <h4>Milestones</h4>
                         <ul className="milestones-list">
-                          {goal.milestones.map(milestone => (
+                          {goal.milestones && goal.milestones.map(milestone => (
                             <li 
-                              key={milestone.id} 
+                              key={milestone._id || milestone.id} 
                               className={milestone.completed ? 'completed' : ''}
-                              onClick={() => toggleMilestoneCompletion(goal.id, milestone.id)}
+                              onClick={() => toggleMilestoneCompletion(goal._id || goal.id, milestone._id || milestone.id)}
                             >
                               <span className="milestone-checkbox">
                                 {milestone.completed ? '✓' : ''}
@@ -314,17 +422,18 @@ const GoalsPage = () => {
                       </div>
                       
                       {/* Related Tasks Section - only shown if there are tasks related to this goal */}
-                      {tasks.some(task => task.goalId === goal.id) && (
+                      {tasks.some(task => task.goalId === (goal._id || goal.id)) && (
                         <div className="goal-tasks">
                           <h4>Related Tasks</h4>
                           <ul className="tasks-list">
                             {tasks
-                              .filter(task => task.goalId === goal.id && new Date(task.dueDate) > new Date())
+                              .filter(task => task.goalId === (goal._id || goal.id) && new Date(task.dueDate) > new Date())
                               .slice(0, 5) // Show only next 5 upcoming tasks
                               .map(task => (
                                 <li 
-                                  key={task.id} 
+                                  key={task._id || task.id} 
                                   className={task.completed ? 'completed' : ''}
+                                  onClick={() => toggleTaskCompletion(goal._id || goal.id, task._id || task.id)}
                                 >
                                   <span className="task-checkbox">
                                     {task.completed ? '✓' : ''}
@@ -335,9 +444,9 @@ const GoalsPage = () => {
                                   </span>
                                 </li>
                               ))}
-                            {tasks.filter(task => task.goalId === goal.id).length > 5 && (
+                            {tasks.filter(task => task.goalId === (goal._id || goal.id)).length > 5 && (
                               <li className="more-tasks-indicator">
-                                + {tasks.filter(task => task.goalId === goal.id).length - 5} more tasks...
+                                + {tasks.filter(task => task.goalId === (goal._id || goal.id)).length - 5} more tasks...
                               </li>
                             )}
                           </ul>
@@ -469,7 +578,7 @@ const GoalsPage = () => {
                   <h4>Upcoming Tasks (Next 7 Days)</h4>
                   <ul className="mini-tasks-list">
                     {getUpcomingTasks(7).slice(0, 3).map(task => (
-                      <li key={task.id}>
+                      <li key={task._id || task.id}>
                         <span className="task-text">{task.description}</span>
                         <span className="task-date">
                           {new Date(task.dueDate).toLocaleDateString()}

@@ -1,7 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import * as goalService from '../services/goalService';
 import '../styles/Dashboard.css';
 
 const Dashboard = () => {
+  const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   // Mock data for dashboard
   const progressData = {
     habits: {
@@ -17,6 +22,91 @@ const Dashboard = () => {
     goals: {
       completed: 3,
       inProgress: 5
+    }
+  };
+
+  // Fetch upcoming tasks on component mount
+  useEffect(() => {
+    const fetchUpcomingTasks = async () => {
+      setIsLoading(true);
+      try {
+        // Try to get tasks from API first
+        const upcomingTasks = await goalService.getUpcomingTasks(1); // Get today's tasks only
+        setTasks(upcomingTasks);
+      } catch (err) {
+        console.error('Failed to fetch tasks from API, falling back to localStorage', err);
+        
+        // Fallback to localStorage
+        const localGoals = goalService.loadGoalsFromLocalStorage();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        // Extract tasks from local goals
+        let todaysTasks = [];
+        localGoals.forEach(goal => {
+          if (goal.tasks && goal.tasks.length > 0) {
+            const goalTasks = goal.tasks.filter(task => {
+              const taskDate = new Date(task.dueDate);
+              return taskDate >= today && taskDate < tomorrow && !task.completed;
+            }).map(task => ({
+              ...task,
+              goalId: goal.id,
+              goalTitle: goal.title
+            }));
+            todaysTasks = [...todaysTasks, ...goalTasks];
+          }
+        });
+        setTasks(todaysTasks);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchUpcomingTasks();
+  }, []);
+  
+  // Function to handle task completion
+  const handleTaskCompletion = async (taskId, goalId) => {
+    const taskIndex = tasks.findIndex(t => (t._id || t.id) === taskId);
+    if (taskIndex === -1) return;
+    
+    const task = tasks[taskIndex];
+    const newCompleted = !task.completed;
+    
+    try {
+      // Try to update in API
+      if (task._id) {
+        await goalService.updateTask(goalId, taskId, newCompleted);
+      }
+      
+      // Update in local state
+      setTasks(tasks.map(task => {
+        if ((task._id || task.id) === taskId) {
+          return { ...task, completed: newCompleted };
+        }
+        return task;
+      }));
+      
+      // Also update task in goals in localStorage
+      const localGoals = goalService.loadGoalsFromLocalStorage();
+      const updatedGoals = localGoals.map(goal => {
+        if ((goal._id || goal.id) === goalId && goal.tasks) {
+          const updatedTasks = goal.tasks.map(t => {
+            if ((t._id || t.id) === taskId) {
+              return { ...t, completed: newCompleted };
+            }
+            return t;
+          });
+          return { ...goal, tasks: updatedTasks };
+        }
+        return goal;
+      });
+      goalService.saveGoalsToLocalStorage(updatedGoals);
+      
+    } catch (err) {
+      console.error('Failed to update task', err);
     }
   };
 
@@ -92,24 +182,28 @@ const Dashboard = () => {
         <div className="dashboard-widget card">
           <h3>Today's Focus</h3>
           <div className="widget-content">
-            <ul className="focus-list">
-              <li className="focus-item">
-                <input type="checkbox" id="focus1" />
-                <label htmlFor="focus1">Complete workout session</label>
-              </li>
-              <li className="focus-item">
-                <input type="checkbox" id="focus2" />
-                <label htmlFor="focus2">Read for 30 minutes</label>
-              </li>
-              <li className="focus-item">
-                <input type="checkbox" id="focus3" />
-                <label htmlFor="focus3">Drink 2L of water</label>
-              </li>
-              <li className="focus-item">
-                <input type="checkbox" id="focus4" />
-                <label htmlFor="focus4">Journal entry for the day</label>
-              </li>
-            </ul>
+            {isLoading ? (
+              <p>Loading today's tasks...</p>
+            ) : tasks.length > 0 ? (
+              <ul className="focus-list">
+                {tasks.map((task, index) => (
+                  <li key={task._id || task.id} className="focus-item">
+                    <input 
+                      type="checkbox" 
+                      id={`task-${index}`} 
+                      checked={task.completed || false}
+                      onChange={() => handleTaskCompletion(task._id || task.id, task.goalId)}
+                    />
+                    <label htmlFor={`task-${index}`}>
+                      <span>{task.description}</span>
+                      {task.goalTitle && <span className="task-goal-title">{task.goalTitle}</span>}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="no-tasks-message">No tasks scheduled for today. Great job!</p>
+            )}
           </div>
         </div>
       </div>

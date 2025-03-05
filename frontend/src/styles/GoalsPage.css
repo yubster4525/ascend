@@ -132,34 +132,42 @@
   margin-bottom: 15px;
 }
 
-.goal-milestones h4 {
+.goal-milestones h4, .goal-tasks h4 {
   font-size: 14px;
   margin-bottom: 10px;
+  color: #34495e;
 }
 
-.milestones-list {
+.milestones-list, .tasks-list {
   list-style: none;
   padding: 0;
+  margin-bottom: 20px;
 }
 
-.milestones-list li {
+.milestones-list li, .tasks-list li {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
   cursor: pointer;
   transition: opacity 0.2s;
+  padding: 6px 8px;
+  border-radius: 4px;
 }
 
-.milestones-list li.completed {
+.milestones-list li:hover, .tasks-list li:hover {
+  background-color: #f5f7fa;
+}
+
+.milestones-list li.completed, .tasks-list li.completed {
   opacity: 0.6;
 }
 
-.milestones-list li.completed .milestone-text {
+.milestones-list li.completed .milestone-text, .tasks-list li.completed .task-text {
   text-decoration: line-through;
 }
 
-.milestone-checkbox {
+.milestone-checkbox, .task-checkbox {
   width: 20px;
   height: 20px;
   border: 1px solid #ddd;
@@ -169,15 +177,31 @@
   justify-content: center;
   color: white;
   background-color: #f5f5f5;
+  flex-shrink: 0;
 }
 
-.milestones-list li.completed .milestone-checkbox {
+.milestones-list li.completed .milestone-checkbox, .tasks-list li.completed .task-checkbox {
   background-color: #2ecc71;
   border-color: #2ecc71;
 }
 
-.milestone-text {
+.milestone-text, .task-text {
   font-size: 14px;
+  flex: 1;
+}
+
+.milestone-date, .task-date {
+  font-size: 12px;
+  color: #7f8c8d;
+  white-space: nowrap;
+}
+
+.more-tasks-indicator, .more-indicator {
+  text-align: center;
+  font-size: 12px;
+  color: #95a5a6;
+  padding: 5px;
+  font-style: italic;
 }
 
 .no-goals-message {
@@ -191,6 +215,32 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.creation-mode-toggle {
+  display: flex;
+  margin-bottom: 15px;
+  background: #f1f1f1;
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.creation-mode-toggle button {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  background: none;
+  color: #7f8c8d;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.creation-mode-toggle button.active {
+  background-color: white;
+  color: #34495e;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .goals-form,
@@ -268,6 +318,45 @@
 
 .insights-content p {
   margin-bottom: 10px;
+}
+
+.insights-content h4 {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 15px;
+  color: #34495e;
+}
+
+.upcoming-tasks-preview {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px dashed #ddd;
+}
+
+.mini-tasks-list {
+  list-style: none;
+  padding: 0;
+}
+
+.mini-tasks-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.mini-tasks-list .task-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-tasks-list .task-date {
+  color: #7f8c8d;
+  margin-left: 10px;
+  font-size: 11px;
 }
 
 /* Responsive */
